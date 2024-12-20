@@ -1,0 +1,102 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+from sklearn.linear_model import LinearRegression
+from sklearn import metrics
+
+# Load dataset
+file_path = '/Users/Taha/Desktop/New folder/NA AI project/Temperature.csv'
+dataset = pd.read_csv(file_path)
+
+# Map months to seasons
+winter_months = ['November', 'December', 'January', 'February']
+dataset['Season'] = dataset['Month'].apply(lambda m: 'Winter' if m in winter_months else 'Summer')
+
+# Calculate average temperature for each year and season
+seasonal_avg = dataset.groupby([' Year', 'Season'])['Temperature - (Celsius)'].mean().reset_index()
+
+# Split into winter and summer dataframes
+winter_data = seasonal_avg[seasonal_avg['Season'] == 'Winter']
+summer_data = seasonal_avg[seasonal_avg['Season'] == 'Summer']
+
+# Extract features (Year) and target (Temperature) for winter and summer
+x_winter = winter_data[' Year'].values.reshape(-1, 1)
+y_winter = winter_data['Temperature - (Celsius)'].values.reshape(-1, 1)
+
+x_summer = summer_data[' Year'].values.reshape(-1, 1)
+y_summer = summer_data['Temperature - (Celsius)'].values.reshape(-1, 1)
+
+# Perform linear regression for winter
+winter_regressor = LinearRegression()
+winter_regressor.fit(x_winter, y_winter)
+winter_slope = winter_regressor.coef_[0][0]
+
+# Perform linear regression for summer
+summer_regressor = LinearRegression()
+summer_regressor.fit(x_summer, y_summer)
+summer_slope = summer_regressor.coef_[0][0]
+
+# Extend the years for predictions (for both plots)
+all_years = np.arange(min(dataset[' Year']), max(dataset[' Year']) + 1).reshape(-1, 1)
+winter_predictions = winter_regressor.predict(all_years)
+summer_predictions = summer_regressor.predict(all_years)
+
+# Original data
+yearly_avg = dataset.groupby(' Year')['Temperature - (Celsius)'].mean().reset_index()
+x = yearly_avg[' Year'].values.reshape(-1, 1)
+y = yearly_avg['Temperature - (Celsius)'].values.reshape(-1, 1)
+
+# Overall regression line
+overall_regressor = LinearRegression()
+overall_regressor.fit(x, y)
+overall_predictions = overall_regressor.predict(all_years)
+overall_slope = overall_regressor.coef_[0][0]
+
+# Calculate mean absolute error for bounds
+overall_mae = metrics.mean_absolute_error(y, overall_regressor.predict(x))
+
+# Plot 1: Regression lines for yearly average temperatures (winter, summer, and overall)
+plt.scatter(x, y, color='blue', alpha=0.5, label='Actual Yearly Avg Temp')
+plt.plot(all_years, winter_predictions, color='blue', linestyle='--', label=f'Winter Trend (Slope: {winter_slope:.2f})')
+plt.plot(all_years, summer_predictions, color='red', linestyle='--', label=f'Summer Trend (Slope: {summer_slope:.2f})')
+plt.plot(all_years, overall_predictions, color='green', label=f'Overall Trend (Slope: {overall_slope:.2f})')
+
+plt.title('Yearly Average Temperature Trends')
+plt.xlabel('Year')
+plt.ylabel('Temperature (Celsius)')
+plt.legend()
+plt.show()
+
+# Extend the years for future predictions (e.g., 2007–2026)
+future_years = np.arange(2007, 2027).reshape(-1, 1)
+winter_future_predictions = winter_regressor.predict(future_years)
+summer_future_predictions = summer_regressor.predict(future_years)
+overall_future_predictions = overall_regressor.predict(future_years)
+
+# Create error bounds
+upper_bound = overall_future_predictions + overall_mae
+lower_bound = overall_future_predictions - overall_mae
+
+# Filter data for 2007–2016
+filtered_data = yearly_avg[(yearly_avg[' Year'] >= 2007) & (yearly_avg[' Year'] <= 2016)]
+x_filtered = filtered_data[' Year'].values.reshape(-1, 1)
+y_filtered = filtered_data['Temperature - (Celsius)'].values.reshape(-1, 1)
+
+# Plot 2: Regression lines for future predictions (winter, summer, and overall)
+plt.fill_between(future_years.flatten(), lower_bound.flatten(), upper_bound.flatten(), color='grey', alpha=0.2, label='Prediction Error Bounds')
+plt.scatter(x_filtered, y_filtered, color='blue', alpha=0.5, label='Actual Yearly Avg Temp (2007–2016)')
+plt.plot(future_years, winter_future_predictions, color='blue', linestyle='--', label=f'Winter Trend (Slope: {winter_slope:.2f})')
+plt.plot(future_years, summer_future_predictions, color='red', linestyle='--', label=f'Summer Trend (Slope: {summer_slope:.2f})')
+plt.plot(future_years, overall_future_predictions, color='green', label=f'Overall Trend (Slope: {overall_slope:.2f})')
+
+plt.title('Temperature Predictions (2007–2026)')
+plt.xlabel('Year')
+plt.ylabel('Temperature (Celsius)')
+plt.legend()
+plt.show()
+
+# Determine if the temperature trend is heating or cooling based on the slope
+trend_type_overall = "Heating" if overall_slope > 0 else "Cooling"
+
+print(f"Overall Temperature Trend: {trend_type_overall}")
+print(f"Overall Mean Absolute Error: {overall_mae:}")
